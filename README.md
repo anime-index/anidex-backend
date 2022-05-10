@@ -2,9 +2,11 @@
 
 Backend REST api for the website, using Python's Fast API
 
-Data from: https://www.kaggle.com/datasets/abhishtagatya/my-anime-list-2021
+Deployed on: [Anidex Deta](https://anidex.deta.dev/)
 
-## Project setup
+Data from: [kaggle @abhishtagatya](https://www.kaggle.com/datasets/abhishtagatya/my-anime-list-2021)
+
+## Project setup (run on local)
 
 ### Get the code
 ```sh
@@ -14,7 +16,7 @@ cd anidex-backend
 
 ### Install libraries
 ```sh
-pip install -r requirement.txt
+pip install -r requirements_local.txt
 ```
 
 ### Run the development server
@@ -23,5 +25,4 @@ uvicorn main:app
 ```
 
 #### Ignore (deployment, database)
-- Deployment on deta
 - MySQL cloud hosting
