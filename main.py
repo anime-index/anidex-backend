@@ -38,4 +38,4 @@ def get_top_series(page: int):
 
 @app.get('/series/{series_id}')
 def get_series(series_id: int):
-    return series.iloc[series_id].to_dict()
+    return series.loc[series_id].to_dict()
