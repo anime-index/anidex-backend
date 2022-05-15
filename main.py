@@ -31,11 +31,15 @@ def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
 
+def select_genres(df, genres):
+    for genre in genres:
+        df = df[df.genres.astype('str').str.contains(genre)]
+    return df
+
+
 @app.get('/anime/search')
 def searh_anime(page: int = 0, title='', type=''):
     filt_animes = animes.copy()
-    filt_animes[['mal_score', 'episodes']] = filt_animes[['mal_score', 'episodes']].fillna(0)
-    filt_animes['synopsis'] = filt_animes['synopsis'].fillna('No synopsis')
     if type:
         types = list(type.split(','))
         if 'Special' in types:
@@ -49,17 +53,17 @@ def searh_anime(page: int = 0, title='', type=''):
         tmp_animes = filt_animes
         tmp_animes['similarity'] = tmp_animes.title.str.lower().apply(lambda x: similar(x, title.lower()))
         tmp_animes['ran'] = tmp_animes.mal_members.rank()
-        tmp_animes['comb'] = 0.5 * tmp_animes.similarity + 0.5 * tmp_animes.ran / tmp_animes.ran.max()
+        tmp_animes['comb'] = 0.75 * tmp_animes.similarity + 0.25 * tmp_animes.ran / tmp_animes.ran.max()
         sorted_animes = tmp_animes.sort_values('comb', ascending=False).head(90)
 
     lst = sorted_animes[ITEMS_PER_PAGE*page:ITEMS_PER_PAGE*(page+1)].to_dict(orient='records')
     return {'page': page, 'last_page': (sorted_animes.shape[0] - 1) // ITEMS_PER_PAGE, 'lst': lst}
 
 @app.get('/top/anime')
-def get_top_anime(page: int = 0, sort_by='mal_score,mal_members'):
+def get_top_anime(page: int = 0, sort_by='mal_score,mal_members', genres=''):
 
     if sort_by == 'None':
-        sorted_animes = tmp_animes.sample(animes.shape[0])
+        sorted_animes = animes.sample(animes.shape[0])
     
     else:
         tmp_animes = animes.copy()
@@ -76,19 +80,23 @@ def get_top_anime(page: int = 0, sort_by='mal_score,mal_members'):
         sorted_animes = tmp_animes.sort_values('tmp')
 
     sorted_animes['position'] = range(1, sorted_animes.shape[0]+1)
-    lst = sorted_animes[ITEMS_PER_PAGE*page:ITEMS_PER_PAGE*(page+1)].fillna(0).to_dict(orient='records')
+    lst = sorted_animes[ITEMS_PER_PAGE*page:ITEMS_PER_PAGE*(page+1)].to_dict(orient='records')
     return {'page': page, 'last_page': (sorted_animes.shape[0] - 1) // ITEMS_PER_PAGE, 'lst': lst}
 
 
 @app.get('/top/series')
-def get_top_series(page: int = 0, sort_by='score,popularity'):
+def get_top_series(page: int = 0, sort_by='score,popularity', genres=''):
 
+    # Genre filtering
+    tmp_series = series.copy() if not genres else select_genres(series, genres.split(','))
+
+    # Series sorting
     if sort_by == 'None':
-        sorted_series = series.sample(series.shape[0])
+        sorted_series = tmp_series.sample(tmp_series.shape[0])
     
     else:
-        tmp_series = series.copy()
 
+        # Drop columns with 0's in the search parameter
         for item in sort_by.split(','):
             column = item.split('-r')[0]
             tmp_series = tmp_series[tmp_series[column]!=0]
@@ -100,9 +108,10 @@ def get_top_series(page: int = 0, sort_by='score,popularity'):
         
         sorted_series = tmp_series.sort_values('tmp')
     
+    # Numbering
     sorted_series['position'] = range(1, sorted_series.shape[0]+1)
 
-    lst = sorted_series[ITEMS_PER_PAGE*page:ITEMS_PER_PAGE*(page+1)].dropna().to_dict(orient='records')
+    lst = sorted_series[ITEMS_PER_PAGE*page:ITEMS_PER_PAGE*(page+1)].to_dict(orient='records')
     return {'page': page, 'last_page': (sorted_series.shape[0] - 1) // ITEMS_PER_PAGE, 'lst': lst}
 
 
