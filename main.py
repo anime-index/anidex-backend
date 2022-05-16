@@ -37,20 +37,31 @@ def select_genres(df, genres):
     return df
 
 
+def select_types(df, types):
+    if 'Special' in types:
+        types.extend(['Music', 'ONA', 'OVA', 'Special', 'Unknown'])
+    return df[df.type.isin(types)]
+
+
 @app.get('/anime/search')
-def searh_anime(page: int = 0, title='', type=''):
-    filt_animes = animes.copy()
-    if type:
-        types = list(type.split(','))
-        if 'Special' in types:
-            types.extend(['Music', 'ONA', 'OVA', 'Special', 'Unknown'])
-        filt_animes = animes[animes.type.isin(types)]
+def searh_anime(page: int = 0, title='', genres='', types=''):
 
-    tmp_animes = filt_animes[filt_animes.title.str.lower().str.contains(title.lower())]
-    sorted_animes = tmp_animes.sort_values('mal_members', ascending=False)
+    tmp_animes = animes.copy()
+    
+    # Genre filtering
+    if genres:
+        tmp_animes = select_genres(tmp_animes, genres.split(','))
 
+    # Type filtering
+    if types:
+        tmp_animes = select_types(tmp_animes, types.split(','))
+
+    # Exact search + sort by popularity
+    normal = tmp_animes[tmp_animes.title.str.lower().str.contains(title.lower())]
+    sorted_animes = normal.sort_values('mal_members', ascending=False)
+
+    # If no results then heuristic search + include popularity in results
     if sorted_animes.shape[0] == 0:
-        tmp_animes = filt_animes
         tmp_animes['similarity'] = tmp_animes.title.str.lower().apply(lambda x: similar(x, title.lower()))
         tmp_animes['ran'] = tmp_animes.mal_members.rank()
         tmp_animes['comb'] = 0.75 * tmp_animes.similarity + 0.25 * tmp_animes.ran / tmp_animes.ran.max()
@@ -59,15 +70,27 @@ def searh_anime(page: int = 0, title='', type=''):
     lst = sorted_animes[ITEMS_PER_PAGE*page:ITEMS_PER_PAGE*(page+1)].to_dict(orient='records')
     return {'page': page, 'last_page': (sorted_animes.shape[0] - 1) // ITEMS_PER_PAGE, 'lst': lst}
 
-@app.get('/top/anime')
-def get_top_anime(page: int = 0, sort_by='mal_score,mal_members', genres=''):
 
+@app.get('/top/anime')
+def get_top_anime(page: int = 0, sort_by='mal_score,mal_members', genres='', types=''):
+
+    tmp_animes = animes.copy()
+    
+    # Genre filtering
+    if genres:
+        tmp_animes = select_genres(tmp_animes, genres.split(','))
+
+    # Type filtering
+    if types:
+        tmp_animes = select_types(tmp_animes, types.split(','))
+
+    # Series sorting
     if sort_by == 'None':
-        sorted_animes = animes.sample(animes.shape[0])
+        sorted_animes = tmp_animes.sample(tmp_animes.shape[0])
     
     else:
-        tmp_animes = animes.copy()
 
+        # Drop columns with 0's in the search parameter
         for item in sort_by.split(','):
             column = item.split('-r')[0]
             tmp_animes = tmp_animes[tmp_animes[column]!=0]
@@ -79,7 +102,9 @@ def get_top_anime(page: int = 0, sort_by='mal_score,mal_members', genres=''):
         
         sorted_animes = tmp_animes.sort_values('tmp')
 
+    # Numbering
     sorted_animes['position'] = range(1, sorted_animes.shape[0]+1)
+
     lst = sorted_animes[ITEMS_PER_PAGE*page:ITEMS_PER_PAGE*(page+1)].to_dict(orient='records')
     return {'page': page, 'last_page': (sorted_animes.shape[0] - 1) // ITEMS_PER_PAGE, 'lst': lst}
 
@@ -87,8 +112,11 @@ def get_top_anime(page: int = 0, sort_by='mal_score,mal_members', genres=''):
 @app.get('/top/series')
 def get_top_series(page: int = 0, sort_by='score,popularity', genres=''):
 
+    tmp_series = series.copy()
+    
     # Genre filtering
-    tmp_series = series.copy() if not genres else select_genres(series, genres.split(','))
+    if genres:
+        tmp_series = select_genres(series, genres.split(','))
 
     # Series sorting
     if sort_by == 'None':
